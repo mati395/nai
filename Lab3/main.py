@@ -7,11 +7,24 @@ Opis problemu:
 
 Autor: Mateusz Andrzejak Szymon Anikiej
 
+Instalacja zależności (w kolejności importów):
+    pip install pandas
+    pip install numpy
+    pip install scipy
+    pip install requests
+    pip install python-dotenv
+
 Instrukcja użycia:
     1. Umieść plik `data.csv` i `.env` w tym samym katalogu co skrypt.
-    2. Uruchom skrypt: `python main.py`.
-    3. Wybierz użytkownika z listy.
-    4. Otrzymasz rekomendacje i antyrekomendacje filmów wraz z wyjaśnieniem.
+    2. Utwórz plik `.env` z kluczem TMDB API: TMDB_API_KEY=twoj_klucz_tutaj
+    3. Uruchom skrypt: `python main.py`.
+    4. Wybierz użytkownika z listy.
+    5. Otrzymasz rekomendacje i antyrekomendacje filmów wraz z wyjaśnieniem.
+
+API:
+    Skrypt używa TMDB API do pobierania informacji o filmach i serialach.
+    Aby uzyskać klucz API: zarejestruj się na https://www.themoviedb.org/, 
+    przejdź do Settings -> API i utwórz nowe konto API (typ: Developer).
 """
 
 import pandas as pd
@@ -21,9 +34,10 @@ from scipy.stats import pearsonr
 import requests
 from dotenv import load_dotenv
 import os
+from urllib.parse import quote
 
 load_dotenv()
-OMDB_API_KEY = os.getenv('OMDB_API_KEY')
+TMDB_API_KEY = os.getenv('TMDB_API_KEY')
 
 def load_and_process_data(file_path):
     """
@@ -222,58 +236,109 @@ def get_worst_movies(user_item_matrix, n=5):
     worst_movies = avg_ratings.sort_values(ascending=True).head(n)
     return [(movie, avg_ratings[movie]) for movie in worst_movies.index]
 
-def get_movie_info(movie):
+def get_movie_info_tmdb(movie):
     """
-    Pobiera informacje o filmie z OMDb API.
+    Pobiera informacje o filmie lub serialu z TMDB API.
 
     Args:
-        movie (str): Tytuł filmu.
+        movie (str): Tytuł filmu/serialu.
 
     Returns:
-        dict: Informacje o filmie.
+        dict: Informacje o filmie/serialu.
     """
-    if not OMDB_API_KEY:
-        return {
-            'title': movie,
-            'description': "Nie znaleziono filmu",
-            'director': "Nie znaleziono filmu",
-            'imdb_rating': "Nie znaleziono filmu",
-            'genre': "Nie znaleziono filmu",
-            'year': "Nie znaleziono filmu"
-        }
+    if not TMDB_API_KEY:
+        return None
 
-    url = f"http://www.omdbapi.com/?t={movie}&apikey={OMDB_API_KEY}"
-    response = requests.get(url)
+    try:
+        # Najpierw szukaj filmu
+        search_url = f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_API_KEY}&query={quote(movie)}&language=pl"
+        search_response = requests.get(search_url, timeout=5)
+        
+        if search_response.status_code == 200:
+            search_data = search_response.json()
+            if search_data.get('results') and len(search_data['results']) > 0:
+                # Weź pierwszy wynik
+                movie_id = search_data['results'][0]['id']
+                
+                # Pobierz szczegóły
+                details_url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={TMDB_API_KEY}&language=pl&append_to_response=credits"
+                details_response = requests.get(details_url, timeout=5)
+                
+                if details_response.status_code == 200:
+                    data = details_response.json()
+                    directors = [crew['name'] for crew in data.get('credits', {}).get('crew', []) if crew.get('job') == 'Director']
+                    director = directors[0] if directors else "Nieznany"
+                    
+                    genres = [g['name'] for g in data.get('genres', [])]
+                    genre = ", ".join(genres) if genres else "Nieznany"
+                    
+                    return {
+                        'title': data.get('title', movie),
+                        'description': data.get('overview', "Brak opisu"),
+                        'director': director,
+                        'imdb_rating': f"{data.get('vote_average', 0):.1f}" if data.get('vote_average') else "Nieznany",
+                        'genre': genre,
+                        'year': data.get('release_date', '')[:4] if data.get('release_date') else "Nieznany"
+                    }
+        
+        # Jeśli nie znaleziono filmu, szukaj serialu
+        search_url_tv = f"https://api.themoviedb.org/3/search/tv?api_key={TMDB_API_KEY}&query={quote(movie)}&language=pl"
+        search_response_tv = requests.get(search_url_tv, timeout=5)
+        
+        if search_response_tv.status_code == 200:
+            search_data_tv = search_response_tv.json()
+            if search_data_tv.get('results') and len(search_data_tv['results']) > 0:
+                # Weź pierwszy wynik
+                tv_id = search_data_tv['results'][0]['id']
+                
+                # Pobierz szczegóły
+                details_url_tv = f"https://api.themoviedb.org/3/tv/{tv_id}?api_key={TMDB_API_KEY}&language=pl&append_to_response=credits"
+                details_response_tv = requests.get(details_url_tv, timeout=5)
+                
+                if details_response_tv.status_code == 200:
+                    data = details_response_tv.json()
+                    creators = [creator['name'] for creator in data.get('created_by', [])]
+                    director = creators[0] if creators else "Nieznany"
+                    
+                    genres = [g['name'] for g in data.get('genres', [])]
+                    genre = ", ".join(genres) if genres else "Nieznany"
+                    
+                    return {
+                        'title': data.get('name', movie),
+                        'description': data.get('overview', "Brak opisu"),
+                        'director': director,
+                        'imdb_rating': f"{data.get('vote_average', 0):.1f}" if data.get('vote_average') else "Nieznany",
+                        'genre': genre,
+                        'year': data.get('first_air_date', '')[:4] if data.get('first_air_date') else "Nieznany"
+                    }
+    except Exception as e:
+        pass
+    
+    return None
 
-    if response.status_code == 200:
-        data = response.json()
-        if data.get('Response') == 'True':
-            return {
-                'title': data.get('Title', movie),
-                'description': data.get('Plot', "Brak opisu"),
-                'director': data.get('Director', "Nieznany"),
-                'imdb_rating': data.get('imdbRating', "Nieznany"),
-                'genre': data.get('Genre', "Nieznany"),
-                'year': data.get('Year', "Nieznany")
-            }
-        else:
-            return {
-                'title': movie,
-                'description': "Nie znaleziono filmu",
-                'director': "Nie znaleziono filmu",
-                'imdb_rating': "Nie znaleziono filmu",
-                'genre': "Nie znaleziono filmu",
-                'year': "Nie znaleziono filmu"
-            }
-    else:
-        return {
-            'title': movie,
-            'description': "Nie znaleziono filmu",
-            'director': "Nie znaleziono filmu",
-            'imdb_rating': "Nie znaleziono filmu",
-            'genre': "Nieznany",
-            'year': "Nieznany"
-        }
+def get_movie_info(movie):
+    """
+    Pobiera informacje o filmie lub serialu z TMDB API.
+
+    Args:
+        movie (str): Tytuł filmu/serialu.
+
+    Returns:
+        dict: Informacje o filmie/serialu. Jeśli nie znaleziono, zwraca domyślne wartości.
+    """
+    info = get_movie_info_tmdb(movie)
+    if info:
+        return info
+    
+    # Jeśli API nie zwróciło informacji, zwróć domyślne wartości
+    return {
+        'title': movie,
+        'description': "Nie znaleziono filmu",
+        'director': "Nieznany",
+        'imdb_rating': "Nieznany",
+        'genre': "Nieznany",
+        'year': "Nieznany"
+    }
 
 def main():
     file_path = 'data.csv'
