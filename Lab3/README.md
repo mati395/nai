@@ -18,7 +18,7 @@ Połączony z TMDB API w celu pobierania dodatkowych informacji o filmach i seri
 2. W katalogu `Lab3` umieść pliki:
    - `main.py`
    - `data.csv` (źródło ocen w formacie `user,movie,rating,...`)
-   - `.env` zawierający `TMDB_API_KEY=twój_klucz`
+   - `.env` zawierający `TMDB_API_KEY=klucz`
 
 ## Uruchomienie
 ```bash
