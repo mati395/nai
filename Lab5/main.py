@@ -358,10 +358,7 @@ def main():
         point2_cifar10()
         point3_fashion_mnist()
         point4_spambase()
-        
-        print("\n" + "="*60)
-        print("Zakończono wszystkie zadania")
-        print("="*60)
+
         
     except FileNotFoundError as e:
         print(f"\nBłąd: Nie znaleziono pliku - {e}")

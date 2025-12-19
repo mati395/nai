@@ -45,17 +45,24 @@ Projekt realizuje zadanie laboratoryjne z klasyfikacji danych przy użyciu **Sie
 
 ## Wizualizacje:
 
-![alt text]()
+![Confusion Matrix - Penguins](confusionMatrix.png)
 
-![alt text]()
+![Feature Importance - Spambase](top15.png)
 
 ---
 
 ## Output programu:
   
- ![alt text]()
+ ![Output 1](1.png)
 
- 
+ ![Output 2](2.png) 
+
+ ![Output 3](3.png)
+
+ ![Output 4](4.png)
+
+ ![Output 5](5.png)
+
 ---
 
 ## Framework
