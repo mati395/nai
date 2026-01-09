@@ -35,10 +35,7 @@ Projekt realizuje zadanie laboratoryjne z **Computer Vision** - system analizy o
 
 ## Przykład użycia
 
-<video width="640" height="480" controls>
-  <source src="przyklad_uzycia.mp4" type="video/mp4">
-  Twoja przeglądarka nie obsługuje odtwarzania wideo.
-</video>
+https://youtu.be/IxqPNFGoO8E
 
 ---
 
